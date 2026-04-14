@@ -23,6 +23,7 @@ while bContinue:
         with engine.connect() as conn:
             conn.execute(drop_table_query)
             conn.commit()
+            conn.close()
 
         # 2. Load main page
         url = "https://www.churchofjesuschrist.org/study/general-conference/2025/10?lang=eng"
@@ -61,66 +62,88 @@ while bContinue:
 
             talk_response = requests.get(talk_url)
             talk_soup = BeautifulSoup(talk_response.text, "html.parser")
-
+            
             # Speaker
             speaker_tag = talk_soup.select_one(".byline")
-            speaker = speaker_tag.get_text(strip=True) if speaker_tag else None
+            speaker = speaker_tag.get_text(strip=True).replace("By ", "") if speaker_tag else None
 
             # Title
             title_tag = talk_soup.select_one("h1")
             title = title_tag.get_text(strip=True) if title_tag else None
 
-            # Kicker
-            kicker_tag = talk_soup.select_one(".kicker")
-            kicker = kicker_tag.get_text(strip=True) if kicker_tag else None
+            if title and "sustaining" not in title.lower():
+                # Kicker
+                kicker_tag = talk_soup.select_one(".kicker")
+                kicker = kicker_tag.get_text(strip=True) if kicker_tag else None
 
-            # Reference selector
-            references = talk_soup.find_all("a")
+                # 4 (2.0) Get references
+                # FULL dictionary (paste your full version here)
+                standard_works_dict = {
+                    'Speaker_Name': '',
+                    'Talk_Name': '',
+                    'Kicker': '',
+                    'Matthew': 0, 'Mark': 0, 'Luke': 0, 'John': 0, 'Acts': 0,
+                    'Romans': 0, '1 Corinthians': 0, '2 Corinthians': 0,
+                    'Galatians': 0, 'Ephesians': 0, 'Philippians': 0,
+                    'Colossians': 0, '1 Thessalonians': 0, '2 Thessalonians': 0,
+                    '1 Timothy': 0, '2 Timothy': 0, 'Titus': 0, 'Philemon': 0,
+                    'Hebrews': 0, 'James': 0, '1 Peter': 0, '2 Peter': 0,
+                    '1 John': 0, '2 John': 0, '3 John': 0, 'Jude': 0,
+                    'Revelation': 0,
+                    'Genesis': 0, 'Exodus': 0, 'Leviticus': 0, 'Numbers': 0,
+                    'Deuteronomy': 0, 'Joshua': 0, 'Judges': 0, 'Ruth': 0,
+                    '1 Samuel': 0, '2 Samuel': 0, '1 Kings': 0, '2 Kings': 0,
+                    '1 Chronicles': 0, '2 Chronicles': 0, 'Ezra': 0,
+                    'Nehemiah': 0, 'Esther': 0, 'Job': 0, 'Psalm': 0,
+                    'Proverbs': 0, 'Ecclesiastes': 0, 'Song of Solomon': 0,
+                    'Isaiah': 0, 'Jeremiah': 0, 'Lamentations': 0,
+                    'Ezekiel': 0, 'Daniel': 0, 'Hosea': 0, 'Joel': 0,
+                    'Amos': 0, 'Obadiah': 0, 'Jonah': 0, 'Micah': 0,
+                    'Nahum': 0, 'Habakkuk': 0, 'Zephaniah': 0,
+                    'Haggai': 0, 'Zechariah': 0, 'Malachi': 0,
+                    '1 Nephi': 0, '2 Nephi': 0, 'Jacob': 0, 'Enos': 0,
+                    'Jarom': 0, 'Omni': 0, 'Words of Mormon': 0,
+                    'Mosiah': 0, 'Alma': 0, 'Helaman': 0,
+                    '3 Nephi': 0, '4 Nephi': 0, 'Mormon': 0,
+                    'Ether': 0, 'Moroni': 0,
+                    'Doctrine and Covenants': 0,
+                    'Moses': 0, 'Abraham': 0,
+                    'Joseph Smith—Matthew': 0,
+                    'Joseph Smith—History': 0,
+                    'Articles of Faith': 0
+                }
 
-            refs = [ref for ref in references if "scripture" in ref.get("href", "")]
+                #Get footnotes
+                footnotes_section = talk_soup.find("footer", class_="notes")
 
-            print("Refs found:", len(refs))
+                if footnotes_section is not None:
 
-            bible = 0
-            bom = 0
-            dc = 0
-            pgp = 0
+                    footnote_text = footnotes_section.get_text()
 
-            for ref in refs:
-                text = ref.get_text().lower()
+                    # Loop through each book
+                    for key in standard_works_dict:
 
-                if any(book in text for book in [
-                    "gen", "ex", "lev", "num", "deut", "joshua", "judges",
-                    "samuel", "kings", "psalm", "proverbs", "isaiah",
-                    "jeremiah", "ezekiel", "matt", "mark", "luke", "john",
-                    "acts", "rom", "cor", "gal", "eph", "phil", "col",
-                    "thess", "tim", "titus", "hebrews", "james", "peter", "rev"
-                ]):
-                    bible += 1
+                        # Skip non-book fields
+                        if key in ["Speaker_Name", "Talk_Name", "Kicker"]:
+                            continue
 
-                elif any(book in text for book in [
-                    "nephi", "alma", "mosiah", "helaman", "ether",
-                    "moroni", "jacob", "enos", "jarom", "omni"
-                ]):
-                    bom += 1
+                        # Count occurrences of each book name
+                        count = footnote_text.count(key)
 
-                elif "d&c" in text or "doctrine and covenants" in text:
-                    dc += 1
+                        standard_works_dict[key] = count
 
-                elif any(book in text for book in ["moses", "abraham"]):
-                    pgp += 1
+                else:
+                    # No references in this talk
+                    print("No footnotes found for this talk.")
 
-            talk_data.append({
-                "speaker": speaker,
-                "title": title,
-                "kicker": kicker,
-                "bible_refs": bible,
-                "book_of_mormon_refs": bom,
-                "dc_refs": dc,
-                "pgp_refs": pgp
-            })
+                #store other values
+                standard_works_dict["Speaker_Name"] = speaker
+                standard_works_dict["Talk_Name"] = title
+                standard_works_dict["Kicker"] = kicker
 
-        print("Total talks scraped:", len(talk_data))
+                #append to list
+                talk_data.append(standard_works_dict)
+
 
         # 5. Save to PostgreSQL
         df = pd.DataFrame(talk_data)

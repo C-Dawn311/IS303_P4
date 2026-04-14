@@ -58,6 +58,7 @@ while bContinue:
         with engine.connect() as conn:
             conn.execute(drop_table_query)
             conn.commit()
+            conn.close()
 
         # 2. Load main page
         url = "https://www.churchofjesuschrist.org/study/general-conference/2025/10?lang=eng"
@@ -120,6 +121,7 @@ while bContinue:
                     if title_str in speaker:
                         speaker = speaker[:speaker.index(title_str)].strip()
 
+
             # Kicker
             kicker_tag = talk_soup.select_one(".kicker")
             kicker = kicker_tag.get_text(strip=True) if kicker_tag else None
@@ -156,6 +158,7 @@ while bContinue:
 
                 # 6. Confirmation
                 print("You've saved the scraped data to your postgres database.")
+
 
     elif choice == "2":
 

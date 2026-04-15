@@ -7,9 +7,9 @@ import pandas as pd
 import sqlalchemy
 import matplotlib.pyplot as plot
 
-# Database connection
+# Database connection (change info here to match your information)
 engine = sqlalchemy.create_engine(
-    "postgresql://postgres:senha@localhost:5432/IS303"
+    "postgresql://postgres:admin@localhost:5432/is303"
 )
 
 standard_works_dict = {

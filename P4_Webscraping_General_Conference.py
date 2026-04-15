@@ -58,7 +58,6 @@ while bContinue:
         with engine.connect() as conn:
             conn.execute(drop_table_query)
             conn.commit()
-            conn.close()
 
         # 2. Load main page
         url = "https://www.churchofjesuschrist.org/study/general-conference/2025/10?lang=eng"
@@ -121,44 +120,34 @@ while bContinue:
                     if title_str in speaker:
                         speaker = speaker[:speaker.index(title_str)].strip()
 
-
             # Kicker
             kicker_tag = talk_soup.select_one(".kicker")
             kicker = kicker_tag.get_text(strip=True) if kicker_tag else None
 
-            # Reference selector
+            # Get footnotes section — only one copy, no duplicate
             footnotes_section = talk_soup.find("footer", class_="notes")
-
             talk_dict_copy = standard_works_dict.copy()
 
             if footnotes_section is not None:
                 footnotes_text = footnotes_section.get_text()
+                for book in talk_dict_copy:
+                    talk_dict_copy[book] = footnotes_text.count(book)
 
-                footnotes_section = talk_soup.find("footer", class_="notes")
-                talk_dict_copy = standard_works_dict.copy()
+            # Store speaker/title/kicker outside the footnotes check
+            # so talks with no footnotes still get saved
+            talk_dict_copy["Speaker_Name"] = speaker
+            talk_dict_copy["Talk_Name"] = title
+            talk_dict_copy["Kicker"] = kicker
 
-                if footnotes_section is not None:
-                    footnotes_text = footnotes_section.get_text()
+            talk_data.append(talk_dict_copy)
 
-                    for book in talk_dict_copy:
-                        talk_dict_copy[book] = footnotes_text.count(book)
+        # 5. Save to PostgreSQL — outside the for loop so it runs once
+        print("Total talks scraped:", len(talk_data))
+        df = pd.DataFrame(talk_data)
+        df.to_sql("general_conference", engine, if_exists="append", index=False)
 
-                # move these OUTSIDE the loop
-                talk_dict_copy["Speaker_Name"] = speaker
-                talk_dict_copy["Talk_Name"] = title
-                talk_dict_copy["Kicker"] = kicker
-
-                talk_data.append(talk_dict_copy)
-
-                print("Total talks scraped:", len(talk_data))
-
-                # 5. Save to PostgreSQL
-                df = pd.DataFrame(talk_data)
-                df.to_sql("general_conference", engine, if_exists="replace", index=False)
-
-                # 6. Confirmation
-                print("You've saved the scraped data to your postgres database.")
-
+        # 6. Confirmation
+        print("You've saved the scraped data to your postgres database.")
 
     elif choice == "2":
 
@@ -196,7 +185,6 @@ while bContinue:
             requested_talk = talk_dict[talk_num]
 
             df_filtered = df_from_postgres.query(f"Talk_Name == '{requested_talk}'")
-
             df_filtered = df_filtered.drop(['Speaker_Name', 'Talk_Name', "Kicker"], axis=1).sum()
             df_filtered = df_filtered[df_filtered > 0]
 
@@ -207,7 +195,5 @@ while bContinue:
             plot.show()
 
     else:
-            print("Closing the program.")
-                
-else:
-    bContinue = False
+        print("Closing the program.")
+        bContinue = False

@@ -14,7 +14,7 @@ import re
 
 # Database connection (change info here to match your information)
 engine = sqlalchemy.create_engine(
-    "postgresql://postgres:posLlynx&5@localhost:5432/is303"
+    "postgresql://postgres:admin@localhost:5432/is303"
 )
 
 # Dictionary of names

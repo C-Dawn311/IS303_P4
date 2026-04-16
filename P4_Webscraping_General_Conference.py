@@ -1,7 +1,7 @@
 # Author: Courtney Bingham, Anna Pettit, Ethan Lawson, Braden Adams
 # Section of 12:30 - 1:45 PM 
 
-#Description: A program that scrapes the name, title, and kicker of a recent general conference sesssion about the user 
+# Description: A program that scrapes the name, title, and kicker of a recent general conference sesssion about the user 
 # entering '1'. Upon entry of '2', the user may choose to see a summary of the talks in the form of a table.
 
 # Imports
@@ -10,12 +10,14 @@ import requests
 import pandas as pd
 import sqlalchemy
 import matplotlib.pyplot as plot
+import re
 
 # Database connection (change info here to match your information)
 engine = sqlalchemy.create_engine(
     "postgresql://postgres:admin@localhost:5432/is303"
 )
 
+# Dictionary of names
 standard_works_dict = {
     # Old Testament
     'Genesis': 0, 'Exodus': 0, 'Leviticus': 0, 'Numbers': 0, 'Deuteronomy': 0,
@@ -51,6 +53,7 @@ standard_works_dict = {
     'Articles of Faith': 0
 }
 
+#------------- PROGRAM ------------------
 bContinue = True
 while bContinue:
     choice = input("If you want to scrape data, enter 1. If you want to see summaries of stored data, enter 2. Enter any other value to exit the program: ")
@@ -129,13 +132,17 @@ while bContinue:
             kicker = kicker_tag.get_text(strip=True) if kicker_tag else None
 
             # Get footnotes section — only one copy, no duplicate
-            footnotes_section = talk_soup.find("footer", class_="notes")
+            #footnotes_section = talk_soup.find("footer", class_="notes")
+            footnotes_section = talk_soup.select_one(".notes")
             talk_dict_copy = standard_works_dict.copy()
 
             if footnotes_section is not None:
-                footnotes_text = footnotes_section.get_text()
+                footnotes_text = footnotes_section.get_text(" ", strip=True)
                 for book in talk_dict_copy:
-                    talk_dict_copy[book] = footnotes_text.count(book)
+                    pattern = r'\b' + re.escape(book) + r'\b'
+                    talk_dict_copy[book] = len(re.findall(pattern, footnotes_text))
+            else:
+                print("No footnotes section found for:", talk_url)    
 
             # Store speaker/title/kicker outside the footnotes check
             # so talks with no footnotes still get saved
@@ -167,16 +174,19 @@ while bContinue:
             df_sums = df_from_postgres.drop(['Speaker_Name', 'Talk_Name', "Kicker"], axis=1).sum()
             df_sums_filtered = df_sums[df_sums > 2]
 
+            #create table
             df_sums_filtered.plot(kind='bar')
             plot.title('Standard Works Referenced in General Conference')
             plot.xlabel("Standard Works Books")
             plot.ylabel("# Times Referenced")
             plot.show()
 
+        #choose specific talk
         elif sub_choice == "2":
             sql_query = 'select * from general_conference'
             df_from_postgres = pd.read_sql_query(sql_query, engine)
 
+            #display and prompt user for their choice of talk to be displayed
             talk_dict = {}
             print("The following are the names of speakers and their talks:")
             for index, row in df_from_postgres.iterrows():
@@ -188,18 +198,8 @@ while bContinue:
             if talk_num not in talk_dict:
                 print("Invalid selection")
                 continue
-
-            """requested_talk = talk_dict[talk_num]
-
-            df_filtered = df_from_postgres.query(f"Talk_Name == '{requested_talk}'")
-            df_filtered = df_filtered.drop(['Speaker_Name', 'Talk_Name', "Kicker"], axis=1).sum()
-            df_filtered = df_filtered[df_filtered > 0]
-
-            df_filtered.plot(kind='bar')
-            plot.title(f'Standard Works Referenced in: {requested_talk}')
-            plot.xlabel("Standard Works Books")
-            plot.ylabel("# Times Referenced")
-            plot.show()"""
+            
+            #get inputted talk
             index = int(talk_num) - 1
             selected_row = df_from_postgres.iloc[index]
 
@@ -208,6 +208,7 @@ while bContinue:
             df_filtered = selected_row.drop(labels=["Speaker_Name", "Talk_Name", "Kicker"])
             df_filtered = df_filtered[df_filtered > 0]
 
+            #create table for talk
             if df_filtered.empty:
                 print("No scripture references found for this talk.")
             else:
@@ -217,6 +218,7 @@ while bContinue:
                 plot.ylabel("# Times Referenced")
                 plot.show()
 
+    # anything but 1 or 2 ends the program
     else:
         print("Closing the program.")
         bContinue = False

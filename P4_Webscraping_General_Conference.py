@@ -1,4 +1,8 @@
 # Author: Courtney Bingham, Anna Pettit, Ethan Lawson, Braden Adams
+# Section of 12:30 - 1:45 PM 
+
+#Description: A program that scrapes the name, title, and kicker of a recent general conference sesssion about the user 
+# entering '1'. Upon entry of '2', the user may choose to see a summary of the talks in the form of a table.
 
 # Imports
 from bs4 import BeautifulSoup
@@ -149,10 +153,13 @@ while bContinue:
         # 6. Confirmation
         print("You've saved the scraped data to your postgres database.")
 
+    #--------------------PART 2 ---------------------
     elif choice == "2":
-
+        
+        #ask for user input
         sub_choice = input("You selected to see summaries. Enter 1 to see a summary of all talks. Enter 2 to select a specific talk. Enter anything else to exit: ")
 
+        #showing all data upon selection of '1'
         if sub_choice == "1":
             sql_query = 'select * from general_conference'
             df_from_postgres = pd.read_sql_query(sql_query, engine)
@@ -182,7 +189,7 @@ while bContinue:
                 print("Invalid selection")
                 continue
 
-            requested_talk = talk_dict[talk_num]
+            """requested_talk = talk_dict[talk_num]
 
             df_filtered = df_from_postgres.query(f"Talk_Name == '{requested_talk}'")
             df_filtered = df_filtered.drop(['Speaker_Name', 'Talk_Name', "Kicker"], axis=1).sum()
@@ -192,7 +199,23 @@ while bContinue:
             plot.title(f'Standard Works Referenced in: {requested_talk}')
             plot.xlabel("Standard Works Books")
             plot.ylabel("# Times Referenced")
-            plot.show()
+            plot.show()"""
+            index = int(talk_num) - 1
+            selected_row = df_from_postgres.iloc[index]
+
+            requested_talk = selected_row["Talk_Name"]
+
+            df_filtered = selected_row.drop(labels=["Speaker_Name", "Talk_Name", "Kicker"])
+            df_filtered = df_filtered[df_filtered > 0]
+
+            if df_filtered.empty:
+                print("No scripture references found for this talk.")
+            else:
+                df_filtered.plot(kind='bar')
+                plot.title(f'Standard Works Referenced in: {requested_talk}')
+                plot.xlabel("Standard Works Books")
+                plot.ylabel("# Times Referenced")
+                plot.show()
 
     else:
         print("Closing the program.")
